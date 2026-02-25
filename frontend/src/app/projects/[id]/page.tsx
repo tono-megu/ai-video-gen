@@ -209,9 +209,6 @@ function SortableSectionCard({
   const [isExpanded, setIsExpanded] = useState(false);
   const [editingVisualSpec, setEditingVisualSpec] = useState(false);
   const [visualSpecText, setVisualSpecText] = useState("");
-  const [splitMode, setSplitMode] = useState(false);
-  const [cursorPosition, setCursorPosition] = useState<number | null>(null);
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const {
     attributes,
@@ -355,16 +352,6 @@ function SortableSectionCard({
     }
   };
 
-  // 分割を実行
-  const handleSplit = (position?: number) => {
-    const pos = position ?? cursorPosition;
-    if (pos !== null && pos > 0 && pos < section.narration.length) {
-      onSplitAtPosition(pos);
-      setSplitMode(false);
-      setCursorPosition(null);
-    }
-  };
-
   // テキストエリアでの ⌘+E 直接分割
   const handleTextareaKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if ((e.metaKey || e.ctrlKey) && e.key === "e") {
@@ -372,7 +359,7 @@ function SortableSectionCard({
       const target = e.target as HTMLTextAreaElement;
       const pos = target.selectionStart;
       if (pos > 0 && pos < section.narration.length) {
-        handleSplit(pos);
+        onSplitAtPosition(pos);
       }
     }
   };
@@ -428,65 +415,17 @@ function SortableSectionCard({
 
       {/* ナレーション（常に表示） */}
       <div className="p-3 border-t">
-        <div className="flex items-center justify-between mb-1">
-          <label className="text-xs text-muted-foreground">
-            ナレーション <span className="text-muted-foreground/60">(⌘+E で分割)</span>
-          </label>
-          {!splitMode ? (
-            <button
-              onClick={() => setSplitMode(true)}
-              className="text-xs text-primary hover:underline"
-              title="クリックした位置でセクションを分割"
-            >
-              ✂️ 分割モード
-            </button>
-          ) : (
-            <div className="flex items-center gap-2">
-              <span className="text-xs text-orange-500">
-                分割位置をクリックして選択 (⌘+E で確定)
-              </span>
-              <button
-                onClick={handleSplit}
-                disabled={cursorPosition === null}
-                className="text-xs bg-primary text-primary-foreground px-2 py-0.5 rounded disabled:opacity-50"
-              >
-                ここで分割
-              </button>
-              <button
-                onClick={() => { setSplitMode(false); setCursorPosition(null); }}
-                className="text-xs text-muted-foreground hover:text-foreground"
-              >
-                キャンセル
-              </button>
-            </div>
-          )}
-        </div>
+        <label className="text-xs text-muted-foreground block mb-1">
+          ナレーション <span className="text-muted-foreground/60">(⌘+E で分割)</span>
+        </label>
         <textarea
-          ref={textareaRef}
           value={section.narration}
           onChange={(e) => onUpdate({ ...section, narration: e.target.value })}
           onKeyDown={handleTextareaKeyDown}
-          onClick={(e) => {
-            if (splitMode) {
-              const target = e.target as HTMLTextAreaElement;
-              setCursorPosition(target.selectionStart);
-            }
-          }}
-          onSelect={(e) => {
-            if (splitMode) {
-              const target = e.target as HTMLTextAreaElement;
-              setCursorPosition(target.selectionStart);
-            }
-          }}
-          className={`w-full p-2 border rounded text-sm bg-background resize-none ${splitMode ? "cursor-crosshair border-orange-500" : ""}`}
+          className="w-full p-2 border rounded text-sm bg-background resize-none"
           rows={2}
           title="⌘+E でカーソル位置で分割"
         />
-        {splitMode && cursorPosition !== null && (
-          <div className="text-xs text-muted-foreground mt-1">
-            分割位置: {cursorPosition}文字目
-          </div>
-        )}
       </div>
 
       {/* 展開時の詳細 */}
