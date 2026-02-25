@@ -80,9 +80,6 @@ function ScriptSectionView({
         <span className="text-sm font-medium">
           {SECTION_TYPE_LABELS[section.type] || section.type}
         </span>
-        <span className="text-xs text-muted-foreground">
-          {section.duration}秒
-        </span>
       </div>
       <p className="text-sm text-muted-foreground mb-2">
         {section.narration}
@@ -160,16 +157,6 @@ function EditableSectionCard({
             </option>
           ))}
         </select>
-        <div className="flex items-center gap-1">
-          <input
-            type="number"
-            value={section.duration}
-            onChange={(e) => onUpdate({ ...section, duration: parseInt(e.target.value) || 0 })}
-            className="w-16 text-sm bg-background border rounded px-2 py-1"
-            min={1}
-          />
-          <span className="text-xs text-muted-foreground">秒</span>
-        </div>
         <div className="flex-1" />
         <div className="flex items-center gap-1">
           <button
@@ -332,13 +319,12 @@ function StructuredScriptEditor({
     const firstHalf: ScriptSectionData = {
       ...section,
       narration: narrationParts.slice(0, midPoint).join("。") + (narrationParts[midPoint - 1]?.endsWith("。") ? "" : "。"),
-      duration: Math.ceil(section.duration / 2),
     };
 
     const secondHalf: ScriptSectionData = {
       type: section.type,
       narration: narrationParts.slice(midPoint).join("。").trim() || "（続き）",
-      duration: Math.floor(section.duration / 2),
+      duration: 0,
       visual_spec: {},
     };
 
@@ -350,7 +336,7 @@ function StructuredScriptEditor({
   const addSection = (afterIndex: number) => {
     const newSection: ScriptSectionData = {
       type: "slide",
-      duration: 30,
+      duration: 0,
       narration: "新しいセクションのナレーションを入力してください。",
       visual_spec: { heading: "見出し", bullets: ["ポイント1"] },
     };
@@ -362,8 +348,6 @@ function StructuredScriptEditor({
   const handleSave = () => {
     onSave({ title, description, sections });
   };
-
-  const totalDuration = sections.reduce((sum, s) => sum + s.duration, 0);
 
   return (
     <div className="space-y-4">
@@ -392,8 +376,8 @@ function StructuredScriptEditor({
       {/* セクション一覧 */}
       <div className="flex items-center justify-between">
         <h3 className="font-medium">セクション ({sections.length})</h3>
-        <span className="text-sm text-muted-foreground">
-          合計: {Math.floor(totalDuration / 60)}分{totalDuration % 60}秒
+        <span className="text-xs text-muted-foreground">
+          ※実際の長さはナレーション生成後に決定
         </span>
       </div>
 

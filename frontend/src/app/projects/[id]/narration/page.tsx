@@ -7,9 +7,11 @@ import { useProject } from "@/hooks/useProject";
 import { useGenerateNarrations } from "@/hooks/usePipeline";
 import { Button } from "@/components/ui/button";
 
-function AudioPlayer({ audioUrl, label }: { audioUrl?: string; label: string }) {
+function AudioPlayer({ audioUrl }: { audioUrl?: string }) {
   const audioRef = useRef<HTMLAudioElement>(null);
   const [isPlaying, setIsPlaying] = useState(false);
+  const [duration, setDuration] = useState<number | null>(null);
+  const [currentTime, setCurrentTime] = useState(0);
 
   const handlePlayPause = () => {
     if (!audioRef.current) return;
@@ -19,6 +21,12 @@ function AudioPlayer({ audioUrl, label }: { audioUrl?: string; label: string }) 
       audioRef.current.play();
     }
     setIsPlaying(!isPlaying);
+  };
+
+  const formatTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = Math.floor(seconds % 60);
+    return `${mins}:${secs.toString().padStart(2, "0")}`;
   };
 
   if (!audioUrl) {
@@ -33,22 +41,44 @@ function AudioPlayer({ audioUrl, label }: { audioUrl?: string; label: string }) 
   }
 
   return (
-    <div className="flex items-center gap-2">
+    <div className="flex items-center gap-3">
       <audio
         ref={audioRef}
         src={audioUrl}
         onEnded={() => setIsPlaying(false)}
         onPause={() => setIsPlaying(false)}
         onPlay={() => setIsPlaying(true)}
+        onLoadedMetadata={() => {
+          if (audioRef.current) {
+            setDuration(audioRef.current.duration);
+          }
+        }}
+        onTimeUpdate={() => {
+          if (audioRef.current) {
+            setCurrentTime(audioRef.current.currentTime);
+          }
+        }}
       />
       <button
         onClick={handlePlayPause}
-        className="w-10 h-10 rounded-full bg-primary text-primary-foreground flex items-center justify-center hover:bg-primary/90 transition-colors"
+        className="w-10 h-10 rounded-full bg-primary text-primary-foreground flex items-center justify-center hover:bg-primary/90 transition-colors shrink-0"
         title={isPlaying ? "一時停止" : "再生"}
       >
         {isPlaying ? "⏸" : "▶"}
       </button>
-      <span className="text-sm text-muted-foreground">{label}</span>
+      <div className="flex flex-col text-xs">
+        <span className="text-muted-foreground">
+          {formatTime(currentTime)} / {duration ? formatTime(duration) : "--:--"}
+        </span>
+        {duration && (
+          <div className="w-24 h-1 bg-muted rounded-full mt-1">
+            <div
+              className="h-full bg-primary rounded-full transition-all"
+              style={{ width: `${(currentTime / duration) * 100}%` }}
+            />
+          </div>
+        )}
+      </div>
     </div>
   );
 }
@@ -62,7 +92,6 @@ function NarrationSection({
     type: string;
     narration?: string;
     narration_audio_path?: string;
-    duration?: number;
   };
 }) {
   const [isExpanded, setIsExpanded] = useState(false);
@@ -76,10 +105,6 @@ function NarrationSection({
     summary: "まとめ",
   };
 
-  const durationLabel = section.duration
-    ? `${Math.round(section.duration)}秒`
-    : "時間未設定";
-
   return (
     <div className="border rounded-lg p-4 bg-card">
       <div className="flex items-center justify-between mb-3">
@@ -90,12 +115,8 @@ function NarrationSection({
           <span className="text-sm font-medium">
             {typeLabels[section.type] || section.type}
           </span>
-          <span className="text-xs text-muted-foreground">{durationLabel}</span>
         </div>
-        <AudioPlayer
-          audioUrl={section.narration_audio_path}
-          label={durationLabel}
-        />
+        <AudioPlayer audioUrl={section.narration_audio_path} />
       </div>
 
       {section.narration && (
