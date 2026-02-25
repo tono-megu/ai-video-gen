@@ -44,22 +44,33 @@ function WorkflowNav({ projectId, currentStep, state }: { projectId: string; cur
   );
 }
 
-function ScriptSection({
+// セクションの型定義
+type ScriptSectionData = {
+  type: string;
+  duration: number;
+  narration: string;
+  visual_spec?: Record<string, unknown>;
+};
+
+const SECTION_TYPE_LABELS: Record<string, string> = {
+  title: "タイトル",
+  slide: "スライド",
+  code: "コード",
+  code_typing: "コードタイピング",
+  diagram: "図解",
+  summary: "まとめ",
+};
+
+const SECTION_TYPES = ["title", "slide", "code", "code_typing", "diagram", "summary"];
+
+// 読み取り専用セクション表示
+function ScriptSectionView({
   section,
   index,
 }: {
-  section: Project["script"] extends { sections: infer S } ? S extends Array<infer T> ? T : never : never;
+  section: ScriptSectionData;
   index: number;
 }) {
-  const sectionTypeLabels: Record<string, string> = {
-    title: "タイトル",
-    slide: "スライド",
-    code: "コード",
-    code_typing: "コードタイピング",
-    diagram: "図解",
-    summary: "まとめ",
-  };
-
   return (
     <div className="border rounded-lg p-4 bg-card">
       <div className="flex items-center gap-2 mb-2">
@@ -67,25 +78,359 @@ function ScriptSection({
           {index + 1}
         </span>
         <span className="text-sm font-medium">
-          {sectionTypeLabels[(section as { type?: string }).type || "slide"] || (section as { type?: string }).type}
+          {SECTION_TYPE_LABELS[section.type] || section.type}
         </span>
         <span className="text-xs text-muted-foreground">
-          {(section as { duration?: number }).duration}秒
+          {section.duration}秒
         </span>
       </div>
       <p className="text-sm text-muted-foreground mb-2">
-        {(section as { narration?: string }).narration}
+        {section.narration}
       </p>
-      {(section as { visual_spec?: Record<string, unknown> }).visual_spec && (
+      {section.visual_spec && (
         <details className="text-xs">
           <summary className="cursor-pointer text-muted-foreground">
             ビジュアル設定
           </summary>
           <pre className="mt-2 p-2 bg-muted rounded overflow-x-auto">
-            {JSON.stringify((section as { visual_spec?: Record<string, unknown> }).visual_spec, null, 2)}
+            {JSON.stringify(section.visual_spec, null, 2)}
           </pre>
         </details>
       )}
+    </div>
+  );
+}
+
+// 編集可能なセクション
+function EditableSectionCard({
+  section,
+  index,
+  totalSections,
+  onUpdate,
+  onDelete,
+  onMoveUp,
+  onMoveDown,
+  onSplit,
+  onAddBelow,
+}: {
+  section: ScriptSectionData;
+  index: number;
+  totalSections: number;
+  onUpdate: (updated: ScriptSectionData) => void;
+  onDelete: () => void;
+  onMoveUp: () => void;
+  onMoveDown: () => void;
+  onSplit: () => void;
+  onAddBelow: () => void;
+}) {
+  const [isExpanded, setIsExpanded] = useState(false);
+  const [editingVisualSpec, setEditingVisualSpec] = useState(false);
+  const [visualSpecText, setVisualSpecText] = useState("");
+
+  const handleVisualSpecEdit = () => {
+    setVisualSpecText(JSON.stringify(section.visual_spec || {}, null, 2));
+    setEditingVisualSpec(true);
+  };
+
+  const handleVisualSpecSave = () => {
+    try {
+      const parsed = JSON.parse(visualSpecText);
+      onUpdate({ ...section, visual_spec: parsed });
+      setEditingVisualSpec(false);
+    } catch {
+      alert("JSONの形式が正しくありません");
+    }
+  };
+
+  return (
+    <div className="border rounded-lg bg-card overflow-hidden">
+      {/* ヘッダー */}
+      <div className="flex items-center gap-2 p-3 bg-muted/30">
+        <span className="text-xs bg-secondary px-2 py-1 rounded font-medium">
+          {index + 1}
+        </span>
+        <select
+          value={section.type}
+          onChange={(e) => onUpdate({ ...section, type: e.target.value })}
+          className="text-sm bg-background border rounded px-2 py-1"
+        >
+          {SECTION_TYPES.map((type) => (
+            <option key={type} value={type}>
+              {SECTION_TYPE_LABELS[type]}
+            </option>
+          ))}
+        </select>
+        <div className="flex items-center gap-1">
+          <input
+            type="number"
+            value={section.duration}
+            onChange={(e) => onUpdate({ ...section, duration: parseInt(e.target.value) || 0 })}
+            className="w-16 text-sm bg-background border rounded px-2 py-1"
+            min={1}
+          />
+          <span className="text-xs text-muted-foreground">秒</span>
+        </div>
+        <div className="flex-1" />
+        <div className="flex items-center gap-1">
+          <button
+            onClick={onMoveUp}
+            disabled={index === 0}
+            className="p-1 hover:bg-muted rounded disabled:opacity-30"
+            title="上へ移動"
+          >
+            ↑
+          </button>
+          <button
+            onClick={onMoveDown}
+            disabled={index === totalSections - 1}
+            className="p-1 hover:bg-muted rounded disabled:opacity-30"
+            title="下へ移動"
+          >
+            ↓
+          </button>
+          <button
+            onClick={() => setIsExpanded(!isExpanded)}
+            className="p-1 hover:bg-muted rounded text-sm"
+            title={isExpanded ? "折りたたむ" : "展開"}
+          >
+            {isExpanded ? "▼" : "▶"}
+          </button>
+        </div>
+      </div>
+
+      {/* ナレーション（常に表示） */}
+      <div className="p-3 border-t">
+        <label className="text-xs text-muted-foreground block mb-1">ナレーション</label>
+        <textarea
+          value={section.narration}
+          onChange={(e) => onUpdate({ ...section, narration: e.target.value })}
+          className="w-full p-2 border rounded text-sm bg-background resize-none"
+          rows={2}
+        />
+      </div>
+
+      {/* 展開時の詳細 */}
+      {isExpanded && (
+        <div className="p-3 border-t bg-muted/10 space-y-3">
+          {/* ビジュアル設定 */}
+          <div>
+            <div className="flex items-center justify-between mb-1">
+              <label className="text-xs text-muted-foreground">ビジュアル設定</label>
+              {!editingVisualSpec && (
+                <button
+                  onClick={handleVisualSpecEdit}
+                  className="text-xs text-primary hover:underline"
+                >
+                  編集
+                </button>
+              )}
+            </div>
+            {editingVisualSpec ? (
+              <div className="space-y-2">
+                <textarea
+                  value={visualSpecText}
+                  onChange={(e) => setVisualSpecText(e.target.value)}
+                  className="w-full p-2 border rounded text-xs font-mono bg-background"
+                  rows={6}
+                />
+                <div className="flex gap-2">
+                  <button
+                    onClick={handleVisualSpecSave}
+                    className="text-xs bg-primary text-primary-foreground px-2 py-1 rounded"
+                  >
+                    保存
+                  </button>
+                  <button
+                    onClick={() => setEditingVisualSpec(false)}
+                    className="text-xs bg-secondary px-2 py-1 rounded"
+                  >
+                    キャンセル
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <pre className="p-2 bg-muted rounded text-xs overflow-x-auto">
+                {JSON.stringify(section.visual_spec || {}, null, 2)}
+              </pre>
+            )}
+          </div>
+
+          {/* アクションボタン */}
+          <div className="flex gap-2 pt-2 border-t">
+            <button
+              onClick={onSplit}
+              className="text-xs bg-secondary hover:bg-secondary/80 px-3 py-1.5 rounded"
+              title="このセクションを2つに分割"
+            >
+              分割
+            </button>
+            <button
+              onClick={onAddBelow}
+              className="text-xs bg-secondary hover:bg-secondary/80 px-3 py-1.5 rounded"
+              title="下に新しいセクションを追加"
+            >
+              + 下に追加
+            </button>
+            <div className="flex-1" />
+            <button
+              onClick={onDelete}
+              className="text-xs bg-destructive/10 text-destructive hover:bg-destructive/20 px-3 py-1.5 rounded"
+              title="このセクションを削除"
+            >
+              削除
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// 構造化エディタ
+function StructuredScriptEditor({
+  script,
+  onSave,
+  onCancel,
+  isSaving,
+}: {
+  script: { title?: string; description?: string; sections?: ScriptSectionData[] };
+  onSave: (script: { title: string; description: string; sections: ScriptSectionData[] }) => void;
+  onCancel: () => void;
+  isSaving: boolean;
+}) {
+  const [title, setTitle] = useState(script.title || "");
+  const [description, setDescription] = useState(script.description || "");
+  const [sections, setSections] = useState<ScriptSectionData[]>(script.sections || []);
+
+  const updateSection = (index: number, updated: ScriptSectionData) => {
+    const newSections = [...sections];
+    newSections[index] = updated;
+    setSections(newSections);
+  };
+
+  const deleteSection = (index: number) => {
+    if (sections.length <= 1) {
+      alert("最低1つのセクションが必要です");
+      return;
+    }
+    setSections(sections.filter((_, i) => i !== index));
+  };
+
+  const moveSection = (index: number, direction: "up" | "down") => {
+    const newIndex = direction === "up" ? index - 1 : index + 1;
+    if (newIndex < 0 || newIndex >= sections.length) return;
+    const newSections = [...sections];
+    [newSections[index], newSections[newIndex]] = [newSections[newIndex], newSections[index]];
+    setSections(newSections);
+  };
+
+  const splitSection = (index: number) => {
+    const section = sections[index];
+    const narrationParts = section.narration.split(/[。！？\n]/);
+    const midPoint = Math.ceil(narrationParts.length / 2);
+
+    const firstHalf: ScriptSectionData = {
+      ...section,
+      narration: narrationParts.slice(0, midPoint).join("。") + (narrationParts[midPoint - 1]?.endsWith("。") ? "" : "。"),
+      duration: Math.ceil(section.duration / 2),
+    };
+
+    const secondHalf: ScriptSectionData = {
+      type: section.type,
+      narration: narrationParts.slice(midPoint).join("。").trim() || "（続き）",
+      duration: Math.floor(section.duration / 2),
+      visual_spec: {},
+    };
+
+    const newSections = [...sections];
+    newSections.splice(index, 1, firstHalf, secondHalf);
+    setSections(newSections);
+  };
+
+  const addSection = (afterIndex: number) => {
+    const newSection: ScriptSectionData = {
+      type: "slide",
+      duration: 30,
+      narration: "新しいセクションのナレーションを入力してください。",
+      visual_spec: { heading: "見出し", bullets: ["ポイント1"] },
+    };
+    const newSections = [...sections];
+    newSections.splice(afterIndex + 1, 0, newSection);
+    setSections(newSections);
+  };
+
+  const handleSave = () => {
+    onSave({ title, description, sections });
+  };
+
+  const totalDuration = sections.reduce((sum, s) => sum + s.duration, 0);
+
+  return (
+    <div className="space-y-4">
+      {/* タイトル・説明 */}
+      <div className="space-y-3 border rounded-lg p-4">
+        <div>
+          <label className="text-sm font-medium block mb-1">タイトル</label>
+          <input
+            type="text"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            className="w-full p-2 border rounded bg-background"
+          />
+        </div>
+        <div>
+          <label className="text-sm font-medium block mb-1">説明</label>
+          <textarea
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            className="w-full p-2 border rounded bg-background resize-none"
+            rows={2}
+          />
+        </div>
+      </div>
+
+      {/* セクション一覧 */}
+      <div className="flex items-center justify-between">
+        <h3 className="font-medium">セクション ({sections.length})</h3>
+        <span className="text-sm text-muted-foreground">
+          合計: {Math.floor(totalDuration / 60)}分{totalDuration % 60}秒
+        </span>
+      </div>
+
+      <div className="space-y-2">
+        {sections.map((section, index) => (
+          <EditableSectionCard
+            key={index}
+            section={section}
+            index={index}
+            totalSections={sections.length}
+            onUpdate={(updated) => updateSection(index, updated)}
+            onDelete={() => deleteSection(index)}
+            onMoveUp={() => moveSection(index, "up")}
+            onMoveDown={() => moveSection(index, "down")}
+            onSplit={() => splitSection(index)}
+            onAddBelow={() => addSection(index)}
+          />
+        ))}
+      </div>
+
+      {/* 新規セクション追加ボタン */}
+      <button
+        onClick={() => addSection(sections.length - 1)}
+        className="w-full p-3 border-2 border-dashed rounded-lg text-muted-foreground hover:border-primary hover:text-primary transition-colors"
+      >
+        + セクションを追加
+      </button>
+
+      {/* 保存・キャンセル */}
+      <div className="flex gap-2 justify-end pt-4 border-t">
+        <Button variant="outline" onClick={onCancel}>
+          キャンセル
+        </Button>
+        <Button onClick={handleSave} disabled={isSaving}>
+          {isSaving ? "保存中..." : "保存"}
+        </Button>
+      </div>
     </div>
   );
 }
@@ -126,7 +471,6 @@ function ScriptEditor({ project }: { project: Project }) {
   const generateScript = useGenerateScript();
   const updateScript = useUpdateScript();
   const [isEditing, setIsEditing] = useState(false);
-  const [editedScript, setEditedScript] = useState("");
   const [parseError, setParseError] = useState<string | null>(null);
   const [isManualMode, setIsManualMode] = useState(false);
   const [documentText, setDocumentText] = useState("");
@@ -141,8 +485,6 @@ function ScriptEditor({ project }: { project: Project }) {
   };
 
   const handleStartEdit = () => {
-    setEditedScript(JSON.stringify(project.script, null, 2));
-    setParseError(null);
     setIsEditing(true);
   };
 
@@ -179,21 +521,6 @@ function ScriptEditor({ project }: { project: Project }) {
     }
   };
 
-  const handleSaveEdit = async () => {
-    try {
-      const parsed = JSON.parse(editedScript);
-      setParseError(null);
-      await updateScript.mutateAsync({ projectId: project.id, script: parsed });
-      setIsEditing(false);
-    } catch (error) {
-      if (error instanceof SyntaxError) {
-        setParseError("JSONの形式が正しくありません。確認してください。");
-      } else {
-        console.error("Failed to update script:", error);
-      }
-    }
-  };
-
   const script = project.script as {
     title?: string;
     description?: string;
@@ -225,16 +552,6 @@ function ScriptEditor({ project }: { project: Project }) {
               <Link href={`/projects/${project.id}/visuals`}>
                 <Button>次へ: ビジュアル →</Button>
               </Link>
-            </>
-          )}
-          {isEditing && (
-            <>
-              <Button onClick={handleSaveEdit} disabled={updateScript.isPending}>
-                {updateScript.isPending ? "保存中..." : "保存"}
-              </Button>
-              <Button variant="outline" onClick={() => { setIsEditing(false); setParseError(null); }}>
-                キャンセル
-              </Button>
             </>
           )}
         </div>
@@ -305,10 +622,18 @@ function ScriptEditor({ project }: { project: Project }) {
       )}
 
       {isEditing ? (
-        <textarea
-          value={editedScript}
-          onChange={(e) => setEditedScript(e.target.value)}
-          className="w-full h-96 p-4 border rounded-md bg-background font-mono text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+        <StructuredScriptEditor
+          script={script || { title: "", description: "", sections: [] }}
+          onSave={async (updatedScript) => {
+            try {
+              await updateScript.mutateAsync({ projectId: project.id, script: updatedScript });
+              setIsEditing(false);
+            } catch (error) {
+              console.error("Failed to update script:", error);
+            }
+          }}
+          onCancel={() => setIsEditing(false)}
+          isSaving={updateScript.isPending}
         />
       ) : (
         script && (
@@ -320,7 +645,7 @@ function ScriptEditor({ project }: { project: Project }) {
 
             <div className="space-y-3">
               {script.sections?.map((section, index) => (
-                <ScriptSection key={index} section={section} index={index} />
+                <ScriptSectionView key={index} section={section as ScriptSectionData} index={index} />
               ))}
             </div>
           </div>
