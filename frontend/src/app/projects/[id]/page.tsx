@@ -1,10 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { useProject } from "@/hooks/useProject";
 import { useGenerateScript, useUpdateScript } from "@/hooks/usePipeline";
+import { useUndoRedo, useUndoRedoKeyboard } from "@/hooks/useUndoRedo";
 import { Button } from "@/components/ui/button";
 import type { Project } from "@/types";
 
@@ -98,6 +99,21 @@ function ScriptSectionView({
   );
 }
 
+// visual_specのフィールドを更新するヘルパー
+function updateVisualSpec(
+  section: ScriptSectionData,
+  field: string,
+  value: unknown
+): ScriptSectionData {
+  return {
+    ...section,
+    visual_spec: {
+      ...(section.visual_spec || {}),
+      [field]: value,
+    },
+  };
+}
+
 // 編集可能なセクション
 function EditableSectionCard({
   section,
@@ -124,6 +140,8 @@ function EditableSectionCard({
   const [editingVisualSpec, setEditingVisualSpec] = useState(false);
   const [visualSpecText, setVisualSpecText] = useState("");
 
+  const vs = (section.visual_spec || {}) as Record<string, unknown>;
+
   const handleVisualSpecEdit = () => {
     setVisualSpecText(JSON.stringify(section.visual_spec || {}, null, 2));
     setEditingVisualSpec(true);
@@ -136,6 +154,116 @@ function EditableSectionCard({
       setEditingVisualSpec(false);
     } catch {
       alert("JSONの形式が正しくありません");
+    }
+  };
+
+  // セクションタイプに応じたビジュアル編集フィールド
+  const renderVisualFields = () => {
+    switch (section.type) {
+      case "title":
+        return (
+          <div className="space-y-2">
+            <div>
+              <label className="text-xs text-muted-foreground block mb-1">タイトル</label>
+              <input
+                type="text"
+                value={(vs.title as string) || ""}
+                onChange={(e) => onUpdate(updateVisualSpec(section, "title", e.target.value))}
+                className="w-full p-2 border rounded text-sm bg-background"
+                placeholder="メインタイトル"
+              />
+            </div>
+            <div>
+              <label className="text-xs text-muted-foreground block mb-1">サブタイトル</label>
+              <input
+                type="text"
+                value={(vs.subtitle as string) || ""}
+                onChange={(e) => onUpdate(updateVisualSpec(section, "subtitle", e.target.value))}
+                className="w-full p-2 border rounded text-sm bg-background"
+                placeholder="サブタイトル（任意）"
+              />
+            </div>
+          </div>
+        );
+      case "slide":
+        return (
+          <div className="space-y-2">
+            <div>
+              <label className="text-xs text-muted-foreground block mb-1">見出し</label>
+              <input
+                type="text"
+                value={(vs.heading as string) || ""}
+                onChange={(e) => onUpdate(updateVisualSpec(section, "heading", e.target.value))}
+                className="w-full p-2 border rounded text-sm bg-background"
+                placeholder="スライドの見出し"
+              />
+            </div>
+            <div>
+              <label className="text-xs text-muted-foreground block mb-1">箇条書き（1行1項目）</label>
+              <textarea
+                value={((vs.bullets as string[]) || []).join("\n")}
+                onChange={(e) => onUpdate(updateVisualSpec(section, "bullets", e.target.value.split("\n").filter(Boolean)))}
+                className="w-full p-2 border rounded text-sm bg-background resize-none"
+                rows={3}
+                placeholder="ポイント1&#10;ポイント2&#10;ポイント3"
+              />
+            </div>
+          </div>
+        );
+      case "code":
+      case "code_typing":
+        return (
+          <div className="space-y-2">
+            <div>
+              <label className="text-xs text-muted-foreground block mb-1">プログラミング言語</label>
+              <input
+                type="text"
+                value={(vs.language as string) || "python"}
+                onChange={(e) => onUpdate(updateVisualSpec(section, "language", e.target.value))}
+                className="w-full p-2 border rounded text-sm bg-background"
+                placeholder="python, javascript, etc."
+              />
+            </div>
+            <div>
+              <label className="text-xs text-muted-foreground block mb-1">コード</label>
+              <textarea
+                value={(vs.code as string) || ""}
+                onChange={(e) => onUpdate(updateVisualSpec(section, "code", e.target.value))}
+                className="w-full p-2 border rounded text-sm bg-background font-mono resize-none"
+                rows={5}
+                placeholder="コードを入力..."
+              />
+            </div>
+          </div>
+        );
+      case "summary":
+        return (
+          <div>
+            <label className="text-xs text-muted-foreground block mb-1">まとめポイント（1行1項目）</label>
+            <textarea
+              value={((vs.points as string[]) || []).join("\n")}
+              onChange={(e) => onUpdate(updateVisualSpec(section, "points", e.target.value.split("\n").filter(Boolean)))}
+              className="w-full p-2 border rounded text-sm bg-background resize-none"
+              rows={3}
+              placeholder="まとめ1&#10;まとめ2&#10;まとめ3"
+            />
+          </div>
+        );
+      case "diagram":
+        return (
+          <div>
+            <label className="text-xs text-muted-foreground block mb-1">図解の説明</label>
+            <textarea
+              value={(vs.description as string) || ""}
+              onChange={(e) => onUpdate(updateVisualSpec(section, "description", e.target.value))}
+              className="w-full p-2 border rounded text-sm bg-background resize-none"
+              rows={2}
+              placeholder="図解の内容を説明..."
+            />
+          </div>
+        );
+      default:
+        return null;
     }
   };
 
@@ -199,48 +327,56 @@ function EditableSectionCard({
       {/* 展開時の詳細 */}
       {isExpanded && (
         <div className="p-3 border-t bg-muted/10 space-y-3">
-          {/* ビジュアル設定 */}
+          {/* ビジュアル設定（タイプ別フォーム） */}
           <div>
-            <div className="flex items-center justify-between mb-1">
-              <label className="text-xs text-muted-foreground">ビジュアル設定</label>
-              {!editingVisualSpec && (
-                <button
-                  onClick={handleVisualSpecEdit}
-                  className="text-xs text-primary hover:underline"
-                >
-                  編集
-                </button>
-              )}
-            </div>
-            {editingVisualSpec ? (
-              <div className="space-y-2">
-                <textarea
-                  value={visualSpecText}
-                  onChange={(e) => setVisualSpecText(e.target.value)}
-                  className="w-full p-2 border rounded text-xs font-mono bg-background"
-                  rows={6}
-                />
-                <div className="flex gap-2">
+            <label className="text-xs text-muted-foreground block mb-2">ビジュアル設定</label>
+            {renderVisualFields()}
+          </div>
+
+          {/* JSON直接編集（詳細設定） */}
+          <details className="text-xs">
+            <summary className="cursor-pointer text-muted-foreground hover:text-foreground">
+              JSON直接編集（詳細設定）
+            </summary>
+            <div className="mt-2 space-y-2">
+              {editingVisualSpec ? (
+                <>
+                  <textarea
+                    value={visualSpecText}
+                    onChange={(e) => setVisualSpecText(e.target.value)}
+                    className="w-full p-2 border rounded text-xs font-mono bg-background"
+                    rows={6}
+                  />
+                  <div className="flex gap-2">
+                    <button
+                      onClick={handleVisualSpecSave}
+                      className="text-xs bg-primary text-primary-foreground px-2 py-1 rounded"
+                    >
+                      保存
+                    </button>
+                    <button
+                      onClick={() => setEditingVisualSpec(false)}
+                      className="text-xs bg-secondary px-2 py-1 rounded"
+                    >
+                      キャンセル
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <div className="flex items-start gap-2">
+                  <pre className="flex-1 p-2 bg-muted rounded text-xs overflow-x-auto">
+                    {JSON.stringify(section.visual_spec || {}, null, 2)}
+                  </pre>
                   <button
-                    onClick={handleVisualSpecSave}
-                    className="text-xs bg-primary text-primary-foreground px-2 py-1 rounded"
+                    onClick={handleVisualSpecEdit}
+                    className="text-xs text-primary hover:underline shrink-0"
                   >
-                    保存
-                  </button>
-                  <button
-                    onClick={() => setEditingVisualSpec(false)}
-                    className="text-xs bg-secondary px-2 py-1 rounded"
-                  >
-                    キャンセル
+                    編集
                   </button>
                 </div>
-              </div>
-            ) : (
-              <pre className="p-2 bg-muted rounded text-xs overflow-x-auto">
-                {JSON.stringify(section.visual_spec || {}, null, 2)}
-              </pre>
-            )}
-          </div>
+              )}
+            </div>
+          </details>
 
           {/* アクションボタン */}
           <div className="flex gap-2 pt-2 border-t">
@@ -273,6 +409,13 @@ function EditableSectionCard({
   );
 }
 
+// 構造化エディタの状態型
+type ScriptEditorState = {
+  title: string;
+  description: string;
+  sections: ScriptSectionData[];
+};
+
 // 構造化エディタ
 function StructuredScriptEditor({
   script,
@@ -285,9 +428,37 @@ function StructuredScriptEditor({
   onCancel: () => void;
   isSaving: boolean;
 }) {
-  const [title, setTitle] = useState(script.title || "");
-  const [description, setDescription] = useState(script.description || "");
-  const [sections, setSections] = useState<ScriptSectionData[]>(script.sections || []);
+  const initialState: ScriptEditorState = {
+    title: script.title || "",
+    description: script.description || "",
+    sections: script.sections || [],
+  };
+
+  const {
+    state,
+    setState,
+    undo,
+    redo,
+    canUndo,
+    canRedo,
+  } = useUndoRedo<ScriptEditorState>(initialState, { maxHistory: 10 });
+
+  // キーボードショートカット
+  useUndoRedoKeyboard(undo, redo, true);
+
+  const { title, description, sections } = state;
+
+  const setTitle = useCallback((newTitle: string) => {
+    setState({ ...state, title: newTitle });
+  }, [state, setState]);
+
+  const setDescription = useCallback((newDescription: string) => {
+    setState({ ...state, description: newDescription });
+  }, [state, setState]);
+
+  const setSections = useCallback((newSections: ScriptSectionData[]) => {
+    setState({ ...state, sections: newSections });
+  }, [state, setState]);
 
   const updateSection = (index: number, updated: ScriptSectionData) => {
     const newSections = [...sections];
@@ -406,14 +577,36 @@ function StructuredScriptEditor({
         + セクションを追加
       </button>
 
-      {/* 保存・キャンセル */}
-      <div className="flex gap-2 justify-end pt-4 border-t">
-        <Button variant="outline" onClick={onCancel}>
-          キャンセル
-        </Button>
-        <Button onClick={handleSave} disabled={isSaving}>
-          {isSaving ? "保存中..." : "保存"}
-        </Button>
+      {/* Undo/Redo・保存・キャンセル */}
+      <div className="flex gap-2 justify-between pt-4 border-t">
+        <div className="flex gap-1">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={undo}
+            disabled={!canUndo}
+            title="元に戻す (Ctrl+Z)"
+          >
+            ↩ 戻す
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={redo}
+            disabled={!canRedo}
+            title="やり直す (Ctrl+Shift+Z)"
+          >
+            ↪ やり直す
+          </Button>
+        </div>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={onCancel}>
+            キャンセル
+          </Button>
+          <Button onClick={handleSave} disabled={isSaving}>
+            {isSaving ? "保存中..." : "保存"}
+          </Button>
+        </div>
       </div>
     </div>
   );
