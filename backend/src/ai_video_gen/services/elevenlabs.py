@@ -1,8 +1,133 @@
 """ElevenLabs API サービス（ナレーション音声生成）"""
 
+import re
+
 import httpx
 
 from ai_video_gen.config import settings
+
+# TTS用カタカナ変換辞書（大文字小文字区別なし）
+TTS_CONVERSION_DICT: dict[str, str] = {
+    # プログラミング言語
+    "Python": "パイソン",
+    "JavaScript": "ジャバスクリプト",
+    "TypeScript": "タイプスクリプト",
+    "Java": "ジャバ",
+    "Ruby": "ルビー",
+    "PHP": "ピーエイチピー",
+    "Go": "ゴー",
+    "Rust": "ラスト",
+    "Swift": "スウィフト",
+    "Kotlin": "コトリン",
+
+    # Web技術
+    "HTML": "エイチティーエムエル",
+    "CSS": "シーエスエス",
+    "API": "エーピーアイ",
+    "REST": "レスト",
+    "JSON": "ジェイソン",
+    "XML": "エックスエムエル",
+    "HTTP": "エイチティーティーピー",
+    "HTTPS": "エイチティーティーピーエス",
+    "URL": "ユーアールエル",
+    "URI": "ユーアールアイ",
+    "DOM": "ドム",
+    "Ajax": "エイジャックス",
+    "WebSocket": "ウェブソケット",
+
+    # フレームワーク・ライブラリ
+    "React": "リアクト",
+    "Vue": "ビュー",
+    "Angular": "アンギュラー",
+    "Next.js": "ネクストジェイエス",
+    "Node.js": "ノードジェイエス",
+    "Express": "エクスプレス",
+    "Django": "ジャンゴ",
+    "Flask": "フラスク",
+    "FastAPI": "ファストエーピーアイ",
+    "Rails": "レイルズ",
+    "Laravel": "ララベル",
+
+    # データベース
+    "SQL": "エスキューエル",
+    "MySQL": "マイエスキューエル",
+    "PostgreSQL": "ポストグレスキューエル",
+    "MongoDB": "モンゴデービー",
+    "Redis": "レディス",
+    "SQLite": "エスキューライト",
+
+    # クラウド・インフラ
+    "AWS": "エーダブリューエス",
+    "GCP": "ジーシーピー",
+    "Azure": "アジュール",
+    "Docker": "ドッカー",
+    "Kubernetes": "クバネティス",
+    "Linux": "リナックス",
+    "Ubuntu": "ウブントゥ",
+    "Git": "ギット",
+    "GitHub": "ギットハブ",
+
+    # 一般的な略語
+    "AI": "エーアイ",
+    "ML": "エムエル",
+    "UI": "ユーアイ",
+    "UX": "ユーエックス",
+    "OS": "オーエス",
+    "PC": "ピーシー",
+    "CPU": "シーピーユー",
+    "GPU": "ジーピーユー",
+    "RAM": "ラム",
+    "SSD": "エスエスディー",
+    "HDD": "エイチディーディー",
+    "USB": "ユーエスビー",
+    "SDK": "エスディーケー",
+    "IDE": "アイディーイー",
+    "CLI": "シーエルアイ",
+    "GUI": "ジーユーアイ",
+    "npm": "エヌピーエム",
+    "pip": "ピップ",
+
+    # CSSプロパティ等
+    "font-size": "フォントサイズ",
+    "font-family": "フォントファミリー",
+    "background": "バックグラウンド",
+    "margin": "マージン",
+    "padding": "パディング",
+    "border": "ボーダー",
+    "display": "ディスプレイ",
+    "flex": "フレックス",
+    "grid": "グリッド",
+    "position": "ポジション",
+
+    # その他
+    "null": "ヌル",
+    "undefined": "アンディファインド",
+    "true": "トゥルー",
+    "false": "フォルス",
+    "function": "ファンクション",
+    "class": "クラス",
+    "import": "インポート",
+    "export": "エクスポート",
+    "async": "エイシンク",
+    "await": "アウェイト",
+    "Promise": "プロミス",
+    "callback": "コールバック",
+}
+
+
+def convert_for_tts(text: str) -> str:
+    """テキストをTTS用にカタカナ変換"""
+    result = text
+
+    # 辞書の単語を長い順にソート（部分一致を防ぐ）
+    sorted_words = sorted(TTS_CONVERSION_DICT.keys(), key=len, reverse=True)
+
+    for word in sorted_words:
+        # 大文字小文字を区別しない置換
+        pattern = re.compile(re.escape(word), re.IGNORECASE)
+        result = pattern.sub(TTS_CONVERSION_DICT[word], result)
+
+    return result
 
 
 class ElevenLabsService:
@@ -23,12 +148,23 @@ class ElevenLabsService:
         text: str,
         voice_id: str | None = None,
         model_id: str = "eleven_multilingual_v2",
+        convert_to_katakana: bool = True,
     ) -> bytes | None:
-        """テキストから音声を生成"""
+        """テキストから音声を生成
+
+        Args:
+            text: 読み上げるテキスト
+            voice_id: 使用する音声ID
+            model_id: 使用するモデルID
+            convert_to_katakana: 英語/略語をカタカナに変換するか
+        """
         if not self.is_available:
             return None  # モックモードでは音声生成スキップ
 
         voice = voice_id or self.voice_id
+
+        # TTS用にカタカナ変換
+        tts_text = convert_for_tts(text) if convert_to_katakana else text
 
         try:
             async with httpx.AsyncClient() as client:
@@ -39,7 +175,7 @@ class ElevenLabsService:
                         "Content-Type": "application/json",
                     },
                     json={
-                        "text": text,
+                        "text": tts_text,
                         "model_id": model_id,
                         "voice_settings": {
                             "stability": 0.5,
