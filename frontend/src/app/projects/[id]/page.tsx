@@ -26,6 +26,57 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 
+// 削除確認ボタン
+function DeleteConfirmButton({
+  onConfirm,
+  label,
+  size = "sm"
+}: {
+  onConfirm: () => void;
+  label: string;
+  size?: "sm" | "md";
+}) {
+  const [showConfirm, setShowConfirm] = useState(false);
+
+  if (showConfirm) {
+    return (
+      <div className="flex items-center gap-1">
+        <span className={`text-destructive ${size === "sm" ? "text-xs" : "text-sm"}`}>
+          {label}を削除？
+        </span>
+        <button
+          onClick={() => { onConfirm(); setShowConfirm(false); }}
+          className={`bg-destructive text-destructive-foreground rounded hover:bg-destructive/90 ${
+            size === "sm" ? "text-xs px-2 py-0.5" : "text-sm px-3 py-1"
+          }`}
+        >
+          削除
+        </button>
+        <button
+          onClick={() => setShowConfirm(false)}
+          className={`bg-secondary rounded hover:bg-secondary/80 ${
+            size === "sm" ? "text-xs px-2 py-0.5" : "text-sm px-3 py-1"
+          }`}
+        >
+          キャンセル
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <button
+      onClick={() => setShowConfirm(true)}
+      className={`bg-destructive/10 text-destructive hover:bg-destructive/20 rounded ${
+        size === "sm" ? "text-xs px-3 py-1.5" : "text-sm px-4 py-2"
+      }`}
+      title={`${label}を削除`}
+    >
+      削除
+    </button>
+  );
+}
+
 // ワークフローナビゲーション
 function WorkflowNav({ projectId, currentStep, state }: { projectId: string; currentStep: string; state: string }) {
   const steps = [
@@ -497,13 +548,7 @@ function SortableSectionCard({
               + 下に追加
             </button>
             <div className="flex-1" />
-            <button
-              onClick={onDelete}
-              className="text-xs bg-destructive/10 text-destructive hover:bg-destructive/20 px-3 py-1.5 rounded"
-              title="このセクションを削除"
-            >
-              削除
-            </button>
+            <DeleteConfirmButton onConfirm={onDelete} label="セクション" />
           </div>
         </div>
       )}

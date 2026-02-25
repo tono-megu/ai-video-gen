@@ -56,6 +56,50 @@ function ScopeBadge({ scope, sectionType }: { scope: string; sectionType?: strin
   );
 }
 
+function DeleteConfirmButton({
+  onConfirm,
+  isPending,
+}: {
+  onConfirm: () => void;
+  isPending?: boolean;
+}) {
+  const [showConfirm, setShowConfirm] = useState(false);
+
+  if (showConfirm) {
+    return (
+      <div className="flex items-center gap-2">
+        <span className="text-sm text-destructive">削除？</span>
+        <Button
+          size="sm"
+          variant="destructive"
+          onClick={() => { onConfirm(); setShowConfirm(false); }}
+          disabled={isPending}
+        >
+          {isPending ? "削除中..." : "削除"}
+        </Button>
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={() => setShowConfirm(false)}
+        >
+          キャンセル
+        </Button>
+      </div>
+    );
+  }
+
+  return (
+    <Button
+      variant="ghost"
+      size="sm"
+      onClick={() => setShowConfirm(true)}
+      className="text-destructive hover:text-destructive"
+    >
+      削除
+    </Button>
+  );
+}
+
 export default function PreferencesPage() {
   const [showAddForm, setShowAddForm] = useState(false);
   const [newPref, setNewPref] = useState({
@@ -82,7 +126,6 @@ export default function PreferencesPage() {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm("この好みを無効化しますか？")) return;
     try {
       await deletePref.mutateAsync(id);
     } catch {
@@ -289,14 +332,10 @@ export default function PreferencesPage() {
                 </div>
                 <div className="flex items-center gap-4">
                   <ConfidenceBadge confidence={pref.confidence} />
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => handleDelete(pref.preference_id)}
-                    className="text-destructive hover:text-destructive"
-                  >
-                    削除
-                  </Button>
+                  <DeleteConfirmButton
+                    onConfirm={() => handleDelete(pref.preference_id)}
+                    isPending={deletePref.isPending}
+                  />
                 </div>
               </div>
             ))}
