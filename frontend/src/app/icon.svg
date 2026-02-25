@@ -1,16 +1,19 @@
 <svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
   <defs>
     <linearGradient id="bgGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" style="stop-color:#8B5CF6"/>
-      <stop offset="50%" style="stop-color:#A855F7"/>
-      <stop offset="100%" style="stop-color:#D946EF"/>
+      <stop offset="0%" style="stop-color:#6EE7B7"/>
+      <stop offset="50%" style="stop-color:#34D399"/>
+      <stop offset="100%" style="stop-color:#10B981"/>
     </linearGradient>
-    <linearGradient id="iconGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+    <linearGradient id="playGradient" x1="0%" y1="0%" x2="100%" y2="100%">
       <stop offset="0%" style="stop-color:#FFFFFF"/>
-      <stop offset="100%" style="stop-color:#E9D5FF"/>
+      <stop offset="100%" style="stop-color:#D1FAE5"/>
     </linearGradient>
-    <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
-      <feGaussianBlur stdDeviation="8" result="blur"/>
+    <filter id="softShadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="4" stdDeviation="8" flood-color="#059669" flood-opacity="0.3"/>
+    </filter>
+    <filter id="sparkle">
+      <feGaussianBlur stdDeviation="2" result="blur"/>
       <feMerge>
         <feMergeNode in="blur"/>
         <feMergeNode in="SourceGraphic"/>
@@ -18,44 +21,33 @@
     </filter>
   </defs>
 
-  <!-- Background rounded square -->
-  <rect x="32" y="32" width="448" height="448" rx="96" fill="url(#bgGradient)"/>
+  <!-- Background - rounder, softer -->
+  <rect x="32" y="32" width="448" height="448" rx="112" fill="url(#bgGradient)"/>
 
-  <!-- AI Circuit design -->
-  <g filter="url(#glow)">
-    <!-- Central brain/chip shape -->
-    <rect x="176" y="176" width="160" height="160" rx="24" fill="url(#iconGradient)" opacity="0.95"/>
+  <!-- Cute play button with film strip feel -->
+  <g filter="url(#softShadow)">
+    <!-- Main circle -->
+    <circle cx="256" cy="256" r="140" fill="url(#playGradient)" opacity="0.95"/>
 
-    <!-- Circuit lines - top -->
-    <path d="M256 176 L256 96" stroke="url(#iconGradient)" stroke-width="16" stroke-linecap="round" opacity="0.9"/>
-    <circle cx="256" cy="96" r="16" fill="url(#iconGradient)" opacity="0.9"/>
+    <!-- Play triangle -->
+    <path d="M220 180 L340 256 L220 332 Z" fill="#10B981" opacity="0.9"/>
+  </g>
 
-    <!-- Circuit lines - bottom -->
-    <path d="M256 336 L256 416" stroke="url(#iconGradient)" stroke-width="16" stroke-linecap="round" opacity="0.9"/>
-    <circle cx="256" cy="416" r="16" fill="url(#iconGradient)" opacity="0.9"/>
+  <!-- Sparkles for AI magic feel -->
+  <g filter="url(#sparkle)">
+    <!-- Top right sparkle -->
+    <path d="M400 100 L408 120 L428 128 L408 136 L400 156 L392 136 L372 128 L392 120 Z" fill="white" opacity="0.9"/>
 
-    <!-- Circuit lines - left -->
-    <path d="M176 256 L96 256" stroke="url(#iconGradient)" stroke-width="16" stroke-linecap="round" opacity="0.9"/>
-    <circle cx="96" cy="256" r="16" fill="url(#iconGradient)" opacity="0.9"/>
+    <!-- Top left sparkle (smaller) -->
+    <path d="M120 80 L125 92 L137 97 L125 102 L120 114 L115 102 L103 97 L115 92 Z" fill="white" opacity="0.8"/>
 
-    <!-- Circuit lines - right -->
-    <path d="M336 256 L416 256" stroke="url(#iconGradient)" stroke-width="16" stroke-linecap="round" opacity="0.9"/>
-    <circle cx="416" cy="256" r="16" fill="url(#iconGradient)" opacity="0.9"/>
+    <!-- Bottom right sparkle (smaller) -->
+    <path d="M420 380 L425 392 L437 397 L425 402 L420 414 L415 402 L403 397 L415 392 Z" fill="white" opacity="0.7"/>
 
-    <!-- Diagonal circuits -->
-    <path d="M195 195 L128 128" stroke="url(#iconGradient)" stroke-width="12" stroke-linecap="round" opacity="0.7"/>
-    <circle cx="128" cy="128" r="12" fill="url(#iconGradient)" opacity="0.7"/>
-
-    <path d="M317 195 L384 128" stroke="url(#iconGradient)" stroke-width="12" stroke-linecap="round" opacity="0.7"/>
-    <circle cx="384" cy="128" r="12" fill="url(#iconGradient)" opacity="0.7"/>
-
-    <path d="M195 317 L128 384" stroke="url(#iconGradient)" stroke-width="12" stroke-linecap="round" opacity="0.7"/>
-    <circle cx="128" cy="384" r="12" fill="url(#iconGradient)" opacity="0.7"/>
-
-    <path d="M317 317 L384 384" stroke="url(#iconGradient)" stroke-width="12" stroke-linecap="round" opacity="0.7"/>
-    <circle cx="384" cy="384" r="12" fill="url(#iconGradient)" opacity="0.7"/>
-
-    <!-- Inner AI symbol -->
-    <text x="256" y="280" font-family="system-ui, -apple-system, sans-serif" font-size="72" font-weight="bold" fill="#8B5CF6" text-anchor="middle">AI</text>
+    <!-- Small dots -->
+    <circle cx="100" cy="200" r="8" fill="white" opacity="0.6"/>
+    <circle cx="440" cy="280" r="6" fill="white" opacity="0.5"/>
+    <circle cx="380" cy="440" r="5" fill="white" opacity="0.5"/>
+    <circle cx="140" cy="400" r="7" fill="white" opacity="0.6"/>
   </g>
 </svg>
