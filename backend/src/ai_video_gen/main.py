@@ -4,6 +4,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from ai_video_gen.api.router import api_router
+from ai_video_gen.api.ws import router as ws_router
 from ai_video_gen.config import settings
 
 app = FastAPI(
@@ -23,6 +24,9 @@ app.add_middleware(
 
 # APIルーター登録
 app.include_router(api_router, prefix="/api")
+
+# WebSocketルーター登録
+app.include_router(ws_router, prefix="/ws")
 
 
 @app.get("/health")
