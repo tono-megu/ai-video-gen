@@ -90,11 +90,47 @@ function ScriptSection({
   );
 }
 
+// 脚本テンプレート
+const SCRIPT_TEMPLATE = {
+  title: "動画タイトル",
+  description: "動画の概要を入力",
+  sections: [
+    {
+      type: "title",
+      duration: 5,
+      narration: "こんにちは！今日は〇〇について学んでいきましょう。",
+      visual_spec: { title: "タイトル", subtitle: "サブタイトル" }
+    },
+    {
+      type: "slide",
+      duration: 30,
+      narration: "まず、〇〇とは何かについて説明します。",
+      visual_spec: { heading: "見出し", bullets: ["ポイント1", "ポイント2", "ポイント3"] }
+    },
+    {
+      type: "code",
+      duration: 45,
+      narration: "実際のコードを見てみましょう。",
+      visual_spec: { language: "python", code: "print('Hello, World!')" }
+    },
+    {
+      type: "summary",
+      duration: 10,
+      narration: "以上でまとめです。ご視聴ありがとうございました！",
+      visual_spec: { points: ["学んだこと1", "学んだこと2"] }
+    }
+  ]
+};
+
 function ScriptEditor({ project }: { project: Project }) {
   const generateScript = useGenerateScript();
   const updateScript = useUpdateScript();
   const [isEditing, setIsEditing] = useState(false);
   const [editedScript, setEditedScript] = useState("");
+  const [parseError, setParseError] = useState<string | null>(null);
+  const [isManualMode, setIsManualMode] = useState(false);
+  const [documentText, setDocumentText] = useState("");
+  const [isConverting, setIsConverting] = useState(false);
 
   const handleGenerateScript = async () => {
     try {
@@ -106,16 +142,55 @@ function ScriptEditor({ project }: { project: Project }) {
 
   const handleStartEdit = () => {
     setEditedScript(JSON.stringify(project.script, null, 2));
+    setParseError(null);
     setIsEditing(true);
+  };
+
+  const handleStartManual = () => {
+    setIsManualMode(true);
+    setDocumentText("");
+  };
+
+  const handleConvertDocument = async () => {
+    if (!documentText.trim()) return;
+
+    setIsConverting(true);
+    try {
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/api/projects/${project.id}/convert-document`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ document: documentText, theme: project.theme }),
+        }
+      );
+
+      if (!response.ok) throw new Error("変換に失敗しました");
+
+      const data = await response.json();
+      await updateScript.mutateAsync({ projectId: project.id, script: data.script });
+      setIsManualMode(false);
+      setDocumentText("");
+    } catch (error) {
+      console.error("Failed to convert document:", error);
+      setParseError("ドキュメントの変換に失敗しました。もう一度お試しください。");
+    } finally {
+      setIsConverting(false);
+    }
   };
 
   const handleSaveEdit = async () => {
     try {
       const parsed = JSON.parse(editedScript);
+      setParseError(null);
       await updateScript.mutateAsync({ projectId: project.id, script: parsed });
       setIsEditing(false);
     } catch (error) {
-      console.error("Failed to update script:", error);
+      if (error instanceof SyntaxError) {
+        setParseError("JSONの形式が正しくありません。確認してください。");
+      } else {
+        console.error("Failed to update script:", error);
+      }
     }
   };
 
@@ -135,14 +210,6 @@ function ScriptEditor({ project }: { project: Project }) {
       <div className="flex items-center justify-between">
         <h2 className="text-xl font-semibold">脚本</h2>
         <div className="flex gap-2">
-          {!script && (
-            <Button
-              onClick={handleGenerateScript}
-              disabled={generateScript.isPending}
-            >
-              {generateScript.isPending ? "生成中..." : "脚本を生成"}
-            </Button>
-          )}
           {script && !isEditing && (
             <>
               <Button
@@ -165,7 +232,7 @@ function ScriptEditor({ project }: { project: Project }) {
               <Button onClick={handleSaveEdit} disabled={updateScript.isPending}>
                 {updateScript.isPending ? "保存中..." : "保存"}
               </Button>
-              <Button variant="outline" onClick={() => setIsEditing(false)}>
+              <Button variant="outline" onClick={() => { setIsEditing(false); setParseError(null); }}>
                 キャンセル
               </Button>
             </>
@@ -177,10 +244,64 @@ function ScriptEditor({ project }: { project: Project }) {
         <p className="text-destructive">脚本の生成に失敗しました</p>
       )}
 
-      {!script && !generateScript.isPending && (
-        <p className="text-muted-foreground">
-          「脚本を生成」ボタンをクリックして、AIに脚本を作成してもらいましょう
-        </p>
+      {parseError && (
+        <p className="text-destructive">{parseError}</p>
+      )}
+
+      {!script && !isEditing && !isManualMode && (
+        <div className="border rounded-lg p-6 text-center">
+          <p className="text-muted-foreground mb-4">
+            脚本を作成してください
+          </p>
+          {generateScript.isPending ? (
+            <p className="text-primary">AIが脚本を生成中...</p>
+          ) : (
+            <div className="flex gap-4 justify-center">
+              <button
+                onClick={handleGenerateScript}
+                className="text-left p-4 border rounded-lg max-w-xs hover:border-primary hover:bg-muted/50 transition-colors cursor-pointer"
+              >
+                <h3 className="font-medium mb-2">AIで生成</h3>
+                <p className="text-sm text-muted-foreground">テーマに基づいてAIが自動で脚本を作成します</p>
+              </button>
+              <button
+                onClick={handleStartManual}
+                className="text-left p-4 border rounded-lg max-w-xs hover:border-primary hover:bg-muted/50 transition-colors cursor-pointer"
+              >
+                <h3 className="font-medium mb-2">ドキュメントから作成</h3>
+                <p className="text-sm text-muted-foreground">メモや原稿を貼り付けてAIがナレーション形式に変換</p>
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
+      {isManualMode && (
+        <div className="border rounded-lg p-6 space-y-4">
+          <div className="flex items-center justify-between">
+            <h3 className="font-medium">ドキュメントを貼り付けてください</h3>
+            <Button variant="outline" onClick={() => setIsManualMode(false)}>
+              キャンセル
+            </Button>
+          </div>
+          <p className="text-sm text-muted-foreground">
+            箇条書き、メモ、原稿など、どんな形式でもOKです。AIがナレーション形式の脚本に変換します。
+          </p>
+          <textarea
+            value={documentText}
+            onChange={(e) => setDocumentText(e.target.value)}
+            placeholder={`例:\n・Pythonとは何か\n・変数の使い方\n・print関数の説明\n・サンプルコード: print("Hello")\n・まとめ`}
+            className="w-full h-64 p-4 border rounded-md bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary resize-none"
+          />
+          <div className="flex gap-2">
+            <Button
+              onClick={handleConvertDocument}
+              disabled={isConverting || !documentText.trim()}
+            >
+              {isConverting ? "変換中..." : "脚本に変換"}
+            </Button>
+          </div>
+        </div>
       )}
 
       {isEditing ? (

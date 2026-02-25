@@ -64,12 +64,56 @@ async def update_script(project_id: UUID, script: dict) -> dict:
     # プロジェクト更新
     result = client.table("projects").update({
         "script": script,
+        "state": ProjectState.SCRIPT_DONE.value,
     }).eq("id", str(project_id)).execute()
 
     if not result.data:
         raise ValueError(f"Project not found: {project_id}")
 
     # セクション更新
+    sections_data = []
+    for idx, section in enumerate(script.get("sections", [])):
+        section_type = section.get("type", "slide")
+        try:
+            SectionType(section_type)
+        except ValueError:
+            section_type = "slide"
+
+        sections_data.append({
+            "project_id": str(project_id),
+            "section_index": idx,
+            "type": section_type,
+            "duration": section.get("duration"),
+            "narration": section.get("narration"),
+            "visual_spec": section.get("visual_spec"),
+        })
+
+    if sections_data:
+        client.table("sections").delete().eq("project_id", str(project_id)).execute()
+        client.table("sections").insert(sections_data).execute()
+
+    return script
+
+
+async def convert_document_to_script(project_id: UUID, document: str, theme: str) -> dict:
+    """ドキュメントをナレーション形式の脚本に変換"""
+    client = get_supabase_client()
+
+    # プロジェクト確認
+    result = client.table("projects").select("*").eq("id", str(project_id)).execute()
+    if not result.data:
+        raise ValueError(f"Project not found: {project_id}")
+
+    # ドキュメントを脚本に変換
+    script = await claude_service.convert_document(document, theme)
+
+    # プロジェクト更新
+    client.table("projects").update({
+        "script": script,
+        "state": ProjectState.SCRIPT_DONE.value,
+    }).eq("id", str(project_id)).execute()
+
+    # セクション作成
     sections_data = []
     for idx, section in enumerate(script.get("sections", [])):
         section_type = section.get("type", "slide")
