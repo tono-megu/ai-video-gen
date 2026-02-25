@@ -11,9 +11,14 @@ export default function Home() {
     <main className="container mx-auto px-4 py-8">
       <div className="flex items-center justify-between mb-8">
         <h1 className="text-3xl font-bold">AI Video Generator</h1>
-        <Link href="/projects/new">
-          <Button>新規プロジェクト</Button>
-        </Link>
+        <div className="flex gap-2">
+          <Link href="/preferences">
+            <Button variant="outline">好み管理</Button>
+          </Link>
+          <Link href="/projects/new">
+            <Button>新規プロジェクト</Button>
+          </Link>
+        </div>
       </div>
 
       {isLoading && <p className="text-muted-foreground">読み込み中...</p>}

@@ -5,6 +5,7 @@ from fastapi import APIRouter
 from ai_video_gen.api.compose import router as compose_router
 from ai_video_gen.api.narration import router as narration_router
 from ai_video_gen.api.pipeline import router as pipeline_router
+from ai_video_gen.api.preferences import router as preferences_router
 from ai_video_gen.api.projects import router as projects_router
 from ai_video_gen.api.visuals import router as visuals_router
 
@@ -24,3 +25,6 @@ api_router.include_router(narration_router, prefix="/projects", tags=["narration
 
 # 動画合成API
 api_router.include_router(compose_router, prefix="/projects", tags=["compose"])
+
+# 好み・フィードバックAPI
+api_router.include_router(preferences_router, prefix="/feedback", tags=["feedback"])
