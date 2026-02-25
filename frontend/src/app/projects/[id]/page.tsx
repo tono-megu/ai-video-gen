@@ -356,25 +356,26 @@ function SortableSectionCard({
   };
 
   // 分割を実行
-  const handleSplit = () => {
-    if (cursorPosition !== null && cursorPosition > 0 && cursorPosition < section.narration.length) {
-      onSplitAtPosition(cursorPosition);
+  const handleSplit = (position?: number) => {
+    const pos = position ?? cursorPosition;
+    if (pos !== null && pos > 0 && pos < section.narration.length) {
+      onSplitAtPosition(pos);
       setSplitMode(false);
       setCursorPosition(null);
     }
   };
 
-  // キーボードショートカット
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (splitMode && (e.metaKey || e.ctrlKey) && e.key === "e") {
-        e.preventDefault();
-        handleSplit();
+  // テキストエリアでの ⌘+E 直接分割
+  const handleTextareaKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if ((e.metaKey || e.ctrlKey) && e.key === "e") {
+      e.preventDefault();
+      const target = e.target as HTMLTextAreaElement;
+      const pos = target.selectionStart;
+      if (pos > 0 && pos < section.narration.length) {
+        handleSplit(pos);
       }
-    };
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [splitMode, cursorPosition]);
+    }
+  };
 
   return (
     <div
@@ -428,7 +429,9 @@ function SortableSectionCard({
       {/* ナレーション（常に表示） */}
       <div className="p-3 border-t">
         <div className="flex items-center justify-between mb-1">
-          <label className="text-xs text-muted-foreground">ナレーション</label>
+          <label className="text-xs text-muted-foreground">
+            ナレーション <span className="text-muted-foreground/60">(⌘+E で分割)</span>
+          </label>
           {!splitMode ? (
             <button
               onClick={() => setSplitMode(true)}
@@ -462,6 +465,7 @@ function SortableSectionCard({
           ref={textareaRef}
           value={section.narration}
           onChange={(e) => onUpdate({ ...section, narration: e.target.value })}
+          onKeyDown={handleTextareaKeyDown}
           onClick={(e) => {
             if (splitMode) {
               const target = e.target as HTMLTextAreaElement;
@@ -476,6 +480,7 @@ function SortableSectionCard({
           }}
           className={`w-full p-2 border rounded text-sm bg-background resize-none ${splitMode ? "cursor-crosshair border-orange-500" : ""}`}
           rows={2}
+          title="⌘+E でカーソル位置で分割"
         />
         {splitMode && cursorPosition !== null && (
           <div className="text-xs text-muted-foreground mt-1">
