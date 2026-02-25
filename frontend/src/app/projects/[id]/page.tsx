@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { useProject } from "@/hooks/useProject";
@@ -8,6 +8,23 @@ import { useGenerateScript, useUpdateScript } from "@/hooks/usePipeline";
 import { useUndoRedo, useUndoRedoKeyboard } from "@/hooks/useUndoRedo";
 import { Button } from "@/components/ui/button";
 import type { Project } from "@/types";
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 
 // ワークフローナビゲーション
 function WorkflowNav({ projectId, currentStep, state }: { projectId: string; currentStep: string; state: string }) {
@@ -114,31 +131,51 @@ function updateVisualSpec(
   };
 }
 
-// 編集可能なセクション
-function EditableSectionCard({
+// ソート可能なセクションカード
+function SortableSectionCard({
+  id,
   section,
   index,
   totalSections,
+  isSelected,
+  onSelect,
   onUpdate,
   onDelete,
-  onMoveUp,
-  onMoveDown,
-  onSplit,
+  onSplitAtPosition,
   onAddBelow,
 }: {
+  id: string;
   section: ScriptSectionData;
   index: number;
   totalSections: number;
+  isSelected: boolean;
+  onSelect: (selected: boolean) => void;
   onUpdate: (updated: ScriptSectionData) => void;
   onDelete: () => void;
-  onMoveUp: () => void;
-  onMoveDown: () => void;
-  onSplit: () => void;
+  onSplitAtPosition: (position: number) => void;
   onAddBelow: () => void;
 }) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [editingVisualSpec, setEditingVisualSpec] = useState(false);
   const [visualSpecText, setVisualSpecText] = useState("");
+  const [splitMode, setSplitMode] = useState(false);
+  const [cursorPosition, setCursorPosition] = useState<number | null>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  };
 
   const vs = (section.visual_spec || {}) as Record<string, unknown>;
 
@@ -267,10 +304,52 @@ function EditableSectionCard({
     }
   };
 
+  // 分割を実行
+  const handleSplit = () => {
+    if (cursorPosition !== null && cursorPosition > 0 && cursorPosition < section.narration.length) {
+      onSplitAtPosition(cursorPosition);
+      setSplitMode(false);
+      setCursorPosition(null);
+    }
+  };
+
+  // キーボードショートカット
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (splitMode && (e.metaKey || e.ctrlKey) && e.key === "e") {
+        e.preventDefault();
+        handleSplit();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [splitMode, cursorPosition]);
+
   return (
-    <div className="border rounded-lg bg-card overflow-hidden">
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={`border rounded-lg bg-card overflow-hidden ${isSelected ? "ring-2 ring-primary" : ""}`}
+    >
       {/* ヘッダー */}
       <div className="flex items-center gap-2 p-3 bg-muted/30">
+        {/* 選択チェックボックス */}
+        <input
+          type="checkbox"
+          checked={isSelected}
+          onChange={(e) => onSelect(e.target.checked)}
+          className="w-4 h-4 rounded"
+          title="結合用に選択"
+        />
+        {/* ドラッグハンドル */}
+        <button
+          {...attributes}
+          {...listeners}
+          className="p-1 cursor-grab hover:bg-muted rounded"
+          title="ドラッグして並び替え"
+        >
+          ⋮⋮
+        </button>
         <span className="text-xs bg-secondary px-2 py-1 rounded font-medium">
           {index + 1}
         </span>
@@ -286,42 +365,72 @@ function EditableSectionCard({
           ))}
         </select>
         <div className="flex-1" />
-        <div className="flex items-center gap-1">
-          <button
-            onClick={onMoveUp}
-            disabled={index === 0}
-            className="p-1 hover:bg-muted rounded disabled:opacity-30"
-            title="上へ移動"
-          >
-            ↑
-          </button>
-          <button
-            onClick={onMoveDown}
-            disabled={index === totalSections - 1}
-            className="p-1 hover:bg-muted rounded disabled:opacity-30"
-            title="下へ移動"
-          >
-            ↓
-          </button>
-          <button
-            onClick={() => setIsExpanded(!isExpanded)}
-            className="p-1 hover:bg-muted rounded text-sm"
-            title={isExpanded ? "折りたたむ" : "展開"}
-          >
-            {isExpanded ? "▼" : "▶"}
-          </button>
-        </div>
+        <button
+          onClick={() => setIsExpanded(!isExpanded)}
+          className="p-1 hover:bg-muted rounded text-sm"
+          title={isExpanded ? "折りたたむ" : "展開"}
+        >
+          {isExpanded ? "▼" : "▶"}
+        </button>
       </div>
 
       {/* ナレーション（常に表示） */}
       <div className="p-3 border-t">
-        <label className="text-xs text-muted-foreground block mb-1">ナレーション</label>
+        <div className="flex items-center justify-between mb-1">
+          <label className="text-xs text-muted-foreground">ナレーション</label>
+          {!splitMode ? (
+            <button
+              onClick={() => setSplitMode(true)}
+              className="text-xs text-primary hover:underline"
+              title="クリックした位置でセクションを分割"
+            >
+              ✂️ 分割モード
+            </button>
+          ) : (
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-orange-500">
+                分割位置をクリックして選択 (⌘+E で確定)
+              </span>
+              <button
+                onClick={handleSplit}
+                disabled={cursorPosition === null}
+                className="text-xs bg-primary text-primary-foreground px-2 py-0.5 rounded disabled:opacity-50"
+              >
+                ここで分割
+              </button>
+              <button
+                onClick={() => { setSplitMode(false); setCursorPosition(null); }}
+                className="text-xs text-muted-foreground hover:text-foreground"
+              >
+                キャンセル
+              </button>
+            </div>
+          )}
+        </div>
         <textarea
+          ref={textareaRef}
           value={section.narration}
           onChange={(e) => onUpdate({ ...section, narration: e.target.value })}
-          className="w-full p-2 border rounded text-sm bg-background resize-none"
+          onClick={(e) => {
+            if (splitMode) {
+              const target = e.target as HTMLTextAreaElement;
+              setCursorPosition(target.selectionStart);
+            }
+          }}
+          onSelect={(e) => {
+            if (splitMode) {
+              const target = e.target as HTMLTextAreaElement;
+              setCursorPosition(target.selectionStart);
+            }
+          }}
+          className={`w-full p-2 border rounded text-sm bg-background resize-none ${splitMode ? "cursor-crosshair border-orange-500" : ""}`}
           rows={2}
         />
+        {splitMode && cursorPosition !== null && (
+          <div className="text-xs text-muted-foreground mt-1">
+            分割位置: {cursorPosition}文字目
+          </div>
+        )}
       </div>
 
       {/* 展開時の詳細 */}
@@ -381,13 +490,6 @@ function EditableSectionCard({
           {/* アクションボタン */}
           <div className="flex gap-2 pt-2 border-t">
             <button
-              onClick={onSplit}
-              className="text-xs bg-secondary hover:bg-secondary/80 px-3 py-1.5 rounded"
-              title="このセクションを2つに分割"
-            >
-              分割
-            </button>
-            <button
               onClick={onAddBelow}
               className="text-xs bg-secondary hover:bg-secondary/80 px-3 py-1.5 rounded"
               title="下に新しいセクションを追加"
@@ -443,10 +545,36 @@ function StructuredScriptEditor({
     canRedo,
   } = useUndoRedo<ScriptEditorState>(initialState, { maxHistory: 10 });
 
+  // 選択状態（結合用）
+  const [selectedIndices, setSelectedIndices] = useState<Set<number>>(new Set());
+
+  // DnD センサー
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
+
   // キーボードショートカット
   useUndoRedoKeyboard(undo, redo, true);
 
+  // 結合ショートカット (⌘+J)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === "j") {
+        e.preventDefault();
+        handleMergeSelected();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [selectedIndices, state]);
+
   const { title, description, sections } = state;
+
+  // セクションIDを生成（DnD用）
+  const sectionIds = sections.map((_, i) => `section-${i}`);
 
   const setTitle = useCallback((newTitle: string) => {
     setState({ ...state, title: newTitle });
@@ -458,6 +586,7 @@ function StructuredScriptEditor({
 
   const setSections = useCallback((newSections: ScriptSectionData[]) => {
     setState({ ...state, sections: newSections });
+    setSelectedIndices(new Set()); // 選択をクリア
   }, [state, setState]);
 
   const updateSection = (index: number, updated: ScriptSectionData) => {
@@ -474,34 +603,71 @@ function StructuredScriptEditor({
     setSections(sections.filter((_, i) => i !== index));
   };
 
-  const moveSection = (index: number, direction: "up" | "down") => {
-    const newIndex = direction === "up" ? index - 1 : index + 1;
-    if (newIndex < 0 || newIndex >= sections.length) return;
-    const newSections = [...sections];
-    [newSections[index], newSections[newIndex]] = [newSections[newIndex], newSections[index]];
-    setSections(newSections);
-  };
-
-  const splitSection = (index: number) => {
+  // カーソル位置で分割
+  const splitSectionAtPosition = (index: number, position: number) => {
     const section = sections[index];
-    const narrationParts = section.narration.split(/[。！？\n]/);
-    const midPoint = Math.ceil(narrationParts.length / 2);
+    const narration = section.narration;
+
+    if (position <= 0 || position >= narration.length) {
+      alert("分割位置が無効です");
+      return;
+    }
 
     const firstHalf: ScriptSectionData = {
       ...section,
-      narration: narrationParts.slice(0, midPoint).join("。") + (narrationParts[midPoint - 1]?.endsWith("。") ? "" : "。"),
+      narration: narration.slice(0, position).trim(),
     };
 
     const secondHalf: ScriptSectionData = {
       type: section.type,
-      narration: narrationParts.slice(midPoint).join("。").trim() || "（続き）",
+      narration: narration.slice(position).trim(),
       duration: 0,
-      visual_spec: {},
+      visual_spec: { ...section.visual_spec },
     };
 
     const newSections = [...sections];
     newSections.splice(index, 1, firstHalf, secondHalf);
     setSections(newSections);
+  };
+
+  // 選択されたセクションを結合
+  const handleMergeSelected = () => {
+    if (selectedIndices.size < 2) {
+      alert("2つ以上のセクションを選択してください");
+      return;
+    }
+
+    const sortedIndices = Array.from(selectedIndices).sort((a, b) => a - b);
+
+    // 連続しているか確認
+    for (let i = 1; i < sortedIndices.length; i++) {
+      if (sortedIndices[i] - sortedIndices[i - 1] !== 1) {
+        alert("隣接するセクションのみ結合できます");
+        return;
+      }
+    }
+
+    const sectionsToMerge = sortedIndices.map((i) => sections[i]);
+    const mergedSection: ScriptSectionData = {
+      type: sectionsToMerge[0].type,
+      duration: sectionsToMerge.reduce((sum, s) => sum + (s.duration || 0), 0),
+      narration: sectionsToMerge.map((s) => s.narration).join("\n"),
+      visual_spec: sectionsToMerge[0].visual_spec,
+    };
+
+    const newSections = sections.filter((_, i) => !selectedIndices.has(i));
+    newSections.splice(sortedIndices[0], 0, mergedSection);
+    setSections(newSections);
+  };
+
+  // DnDハンドラー
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (over && active.id !== over.id) {
+      const oldIndex = sectionIds.indexOf(active.id as string);
+      const newIndex = sectionIds.indexOf(over.id as string);
+      setSections(arrayMove(sections, oldIndex, newIndex));
+    }
   };
 
   const addSection = (afterIndex: number) => {
@@ -514,6 +680,16 @@ function StructuredScriptEditor({
     const newSections = [...sections];
     newSections.splice(afterIndex + 1, 0, newSection);
     setSections(newSections);
+  };
+
+  const toggleSelection = (index: number, selected: boolean) => {
+    const newSelected = new Set(selectedIndices);
+    if (selected) {
+      newSelected.add(index);
+    } else {
+      newSelected.delete(index);
+    }
+    setSelectedIndices(newSelected);
   };
 
   const handleSave = () => {
@@ -544,30 +720,51 @@ function StructuredScriptEditor({
         </div>
       </div>
 
-      {/* セクション一覧 */}
+      {/* セクション一覧ヘッダー */}
       <div className="flex items-center justify-between">
-        <h3 className="font-medium">セクション ({sections.length})</h3>
+        <div className="flex items-center gap-2">
+          <h3 className="font-medium">セクション ({sections.length})</h3>
+          {selectedIndices.size >= 2 && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleMergeSelected}
+              title="選択したセクションを結合 (⌘+J)"
+            >
+              🔗 結合 ({selectedIndices.size}件)
+            </Button>
+          )}
+        </div>
         <span className="text-xs text-muted-foreground">
-          ※実際の長さはナレーション生成後に決定
+          ドラッグで並び替え / チェックで選択して結合
         </span>
       </div>
 
-      <div className="space-y-2">
-        {sections.map((section, index) => (
-          <EditableSectionCard
-            key={index}
-            section={section}
-            index={index}
-            totalSections={sections.length}
-            onUpdate={(updated) => updateSection(index, updated)}
-            onDelete={() => deleteSection(index)}
-            onMoveUp={() => moveSection(index, "up")}
-            onMoveDown={() => moveSection(index, "down")}
-            onSplit={() => splitSection(index)}
-            onAddBelow={() => addSection(index)}
-          />
-        ))}
-      </div>
+      <DndContext
+        sensors={sensors}
+        collisionDetection={closestCenter}
+        onDragEnd={handleDragEnd}
+      >
+        <SortableContext items={sectionIds} strategy={verticalListSortingStrategy}>
+          <div className="space-y-2">
+            {sections.map((section, index) => (
+              <SortableSectionCard
+                key={sectionIds[index]}
+                id={sectionIds[index]}
+                section={section}
+                index={index}
+                totalSections={sections.length}
+                isSelected={selectedIndices.has(index)}
+                onSelect={(selected) => toggleSelection(index, selected)}
+                onUpdate={(updated) => updateSection(index, updated)}
+                onDelete={() => deleteSection(index)}
+                onSplitAtPosition={(position) => splitSectionAtPosition(index, position)}
+                onAddBelow={() => addSection(index)}
+              />
+            ))}
+          </div>
+        </SortableContext>
+      </DndContext>
 
       {/* 新規セクション追加ボタン */}
       <button
