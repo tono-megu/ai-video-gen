@@ -2,7 +2,14 @@
   "permissions": {
     "allow": [
       "Bash(git add:*)",
-      "Bash(git commit -m \"$\\(cat <<''EOF''\nfeat: Sprint 1 - プロジェクト基盤構築\n\nBackend \\(FastAPI\\):\n- pyproject.toml + Dockerfile\n- FastAPIアプリケーション \\(main.py, config.py\\)\n- プロジェクトCRUD API \\(/api/projects\\)\n- Pydanticモデル \\(Project, Section\\)\n- Supabaseクライアント\n\nFrontend \\(Next.js 15\\):\n- package.json + Dockerfile\n- App Router + Tailwind CSS + shadcn/ui\n- TanStack Query統合\n- プロジェクト一覧ダッシュボード\n- APIクライアント + カスタムフック\n\nInfrastructure:\n- Docker Compose設定\n- Supabaseマイグレーション \\(projects, sections, corrections, preferences\\)\n- GitHub Actions CI \\(lint + test\\)\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\nEOF\n\\)\")"
+      "Bash(git commit -m \"$\\(cat <<''EOF''\nfeat: Sprint 1 - プロジェクト基盤構築\n\nBackend \\(FastAPI\\):\n- pyproject.toml + Dockerfile\n- FastAPIアプリケーション \\(main.py, config.py\\)\n- プロジェクトCRUD API \\(/api/projects\\)\n- Pydanticモデル \\(Project, Section\\)\n- Supabaseクライアント\n\nFrontend \\(Next.js 15\\):\n- package.json + Dockerfile\n- App Router + Tailwind CSS + shadcn/ui\n- TanStack Query統合\n- プロジェクト一覧ダッシュボード\n- APIクライアント + カスタムフック\n\nInfrastructure:\n- Docker Compose設定\n- Supabaseマイグレーション \\(projects, sections, corrections, preferences\\)\n- GitHub Actions CI \\(lint + test\\)\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\nEOF\n\\)\")",
+      "Bash(uv sync:*)",
+      "Bash(curl:*)",
+      "Bash(python3 -m json.tool:*)",
+      "Bash(python3:*)",
+      "Bash(lsof:*)",
+      "Bash(xargs kill -9)",
+      "Bash(git commit:*)"
     ]
   }
 }

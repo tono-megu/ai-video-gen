@@ -8,6 +8,42 @@ import { useGenerateScript, useUpdateScript } from "@/hooks/usePipeline";
 import { Button } from "@/components/ui/button";
 import type { Project } from "@/types";
 
+// ワークフローナビゲーション
+function WorkflowNav({ projectId, currentStep, state }: { projectId: string; currentStep: string; state: string }) {
+  const steps = [
+    { id: "script", label: "脚本", href: `/projects/${projectId}`, available: true },
+    { id: "visuals", label: "ビジュアル", href: `/projects/${projectId}/visuals`, available: state !== "init" },
+    { id: "narration", label: "ナレーション", href: `/projects/${projectId}/narration`, available: ["visuals_done", "narration_done", "composed"].includes(state) },
+    { id: "compose", label: "動画合成", href: `/projects/${projectId}/compose`, available: ["narration_done", "composed"].includes(state) },
+  ];
+
+  return (
+    <div className="flex gap-2 mb-8 border-b pb-4">
+      {steps.map((step, index) => (
+        <div key={step.id} className="flex items-center">
+          {index > 0 && <span className="mx-2 text-muted-foreground">→</span>}
+          {step.available ? (
+            <Link
+              href={step.href}
+              className={`px-4 py-2 rounded-md transition-colors ${
+                currentStep === step.id
+                  ? "bg-primary text-primary-foreground"
+                  : "bg-secondary hover:bg-secondary/80"
+              }`}
+            >
+              {step.label}
+            </Link>
+          ) : (
+            <span className="px-4 py-2 rounded-md bg-muted text-muted-foreground cursor-not-allowed">
+              {step.label}
+            </span>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function ScriptSection({
   section,
   index,
@@ -119,6 +155,9 @@ function ScriptEditor({ project }: { project: Project }) {
               <Button variant="outline" onClick={handleStartEdit}>
                 編集
               </Button>
+              <Link href={`/projects/${project.id}/visuals`}>
+                <Button>次へ: ビジュアル →</Button>
+              </Link>
             </>
           )}
           {isEditing && (
@@ -206,13 +245,13 @@ export default function ProjectDetailPage() {
 
   return (
     <main className="container mx-auto px-4 py-8 max-w-4xl">
-      <div className="mb-8">
+      <div className="mb-4">
         <Link href="/" className="text-muted-foreground hover:text-foreground">
           ← ダッシュボードに戻る
         </Link>
       </div>
 
-      <div className="mb-8">
+      <div className="mb-4">
         <div className="flex items-center gap-3 mb-2">
           <h1 className="text-3xl font-bold">{project.theme}</h1>
           <span className="text-sm bg-secondary px-2 py-1 rounded">
@@ -224,6 +263,8 @@ export default function ProjectDetailPage() {
           {project.duration_target && ` / 目標時間: ${project.duration_target}秒`}
         </p>
       </div>
+
+      <WorkflowNav projectId={projectId} currentStep="script" state={project.state} />
 
       <ScriptEditor project={project} />
     </main>

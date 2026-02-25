@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            width: 1920px;
+            height: 1080px;
+            font-family: 'Noto Sans JP', 'Hiragino Sans', sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            color: #ffffff;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            padding: 80px;
+        }
+        .title-slide {
+            text-align: center;
+        }
+        .title-slide h1 {
+            font-size: 72px;
+            font-weight: 700;
+            margin-bottom: 24px;
+            background: linear-gradient(90deg, #00d4ff, #7b2cbf);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .title-slide .subtitle {
+            font-size: 36px;
+            color: #a0a0a0;
+        }
+        .content-slide h2 {
+            font-size: 56px;
+            font-weight: 600;
+            margin-bottom: 48px;
+            color: #00d4ff;
+        }
+        .content-slide ul {
+            list-style: none;
+            font-size: 36px;
+            line-height: 2;
+        }
+        .content-slide ul li {
+            padding-left: 40px;
+            position: relative;
+        }
+        .content-slide ul li::before {
+            content: "▸";
+            position: absolute;
+            left: 0;
+            color: #7b2cbf;
+        }
+        .code-slide h2 {
+            font-size: 48px;
+            margin-bottom: 32px;
+            color: #00d4ff;
+        }
+        .code-slide pre {
+            background: #0d1117;
+            border-radius: 16px;
+            padding: 40px;
+            font-size: 28px;
+            line-height: 1.6;
+            font-family: 'JetBrains Mono', 'Fira Code', monospace;
+            overflow: hidden;
+            border: 1px solid #30363d;
+        }
+        .code-slide code {
+            color: #c9d1d9;
+        }
+        .code-slide .keyword { color: #ff7b72; }
+        .code-slide .string { color: #a5d6ff; }
+        .code-slide .function { color: #d2a8ff; }
+        .code-slide .comment { color: #8b949e; }
+        .summary-slide {
+            text-align: center;
+        }
+        .summary-slide h2 {
+            font-size: 56px;
+            margin-bottom: 48px;
+            color: #00d4ff;
+        }
+        .summary-slide ul {
+            list-style: none;
+            font-size: 32px;
+            line-height: 2.2;
+        }
+        .summary-slide ul li {
+            display: inline-block;
+            background: rgba(123, 44, 191, 0.2);
+            padding: 16px 32px;
+            border-radius: 8px;
+            margin: 8px;
+            border: 1px solid #7b2cbf;
+        }
+    </style>
+</head>
+<body>
+    {{ content }}
+</body>
+</html>
