@@ -1,0 +1,27 @@
+services:
+  - type: web
+    name: ai-video-gen-api
+    runtime: python
+    region: singapore
+    plan: free
+    buildCommand: |
+      cd backend
+      pip install uv
+      uv sync
+    startCommand: cd backend && uv run uvicorn src.ai_video_gen.main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: GOOGLE_API_KEY
+        sync: false
+      - key: ELEVENLABS_API_KEY
+        sync: false
+      - key: ELEVENLABS_VOICE_ID
+        sync: false
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_KEY
+        sync: false
+      - key: SUPABASE_ANON_KEY
+        sync: false
+    healthCheckPath: /health
