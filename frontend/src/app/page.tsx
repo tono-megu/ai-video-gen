@@ -4,6 +4,14 @@ import Link from "next/link";
 import { useProjects } from "@/hooks/useProject";
 import { Button } from "@/components/ui/button";
 
+const stateLabels: Record<string, string> = {
+  init: "初期化",
+  script_done: "脚本完了",
+  visuals_done: "ビジュアル完了",
+  narration_done: "ナレーション完了",
+  composed: "完成",
+};
+
 export default function Home() {
   const { data: projects, isLoading, error } = useProjects();
 
@@ -50,7 +58,7 @@ export default function Home() {
             >
               <h2 className="font-semibold mb-2">{project.theme}</h2>
               <p className="text-sm text-muted-foreground">
-                状態: {project.state}
+                状態: {stateLabels[project.state] || project.state}
               </p>
               <p className="text-xs text-muted-foreground mt-2">
                 作成日: {new Date(project.created_at).toLocaleDateString("ja-JP")}
