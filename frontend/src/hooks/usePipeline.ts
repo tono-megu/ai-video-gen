@@ -155,3 +155,47 @@ export function useRegenerateSlide() {
     },
   });
 }
+
+// Narration API
+interface NarrationResponse {
+  section_id: string;
+  section_index: number;
+  status: string;
+  duration?: number;
+  audio_url?: string;
+  message?: string;
+}
+
+interface NarrationsResponse {
+  narrations: NarrationResponse[];
+  message: string;
+}
+
+async function generateNarrationsApi(projectId: string): Promise<NarrationsResponse> {
+  const response = await fetch(`${API_URL}/api/projects/${projectId}/generate-narration`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+  });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({}));
+    throw new Error(error.detail || `HTTP error ${response.status}`);
+  }
+
+  return response.json();
+}
+
+// Narration Hooks
+export function useGenerateNarrations() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (projectId: string) => generateNarrationsApi(projectId),
+    onSuccess: (_, projectId) => {
+      queryClient.invalidateQueries({ queryKey: ["projects", projectId] });
+      queryClient.invalidateQueries({ queryKey: ["projects"] });
+    },
+  });
+}

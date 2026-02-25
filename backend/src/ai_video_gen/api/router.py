@@ -2,6 +2,7 @@
 
 from fastapi import APIRouter
 
+from ai_video_gen.api.narration import router as narration_router
 from ai_video_gen.api.pipeline import router as pipeline_router
 from ai_video_gen.api.projects import router as projects_router
 from ai_video_gen.api.visuals import router as visuals_router
@@ -16,3 +17,6 @@ api_router.include_router(pipeline_router, prefix="/projects", tags=["pipeline"]
 
 # ビジュアルAPI
 api_router.include_router(visuals_router, prefix="/projects", tags=["visuals"])
+
+# ナレーションAPI
+api_router.include_router(narration_router, prefix="/projects", tags=["narration"])
